@@ -1,30 +1,16 @@
-# real-time-voice-bot
+# dialogflow-example
 
-## About
+This repository demonstrates using Deepgram to talk to a Google Dialogflow CX agent.
 
-This is a simple example of how you could build a Real Time Voice Bot using Deepgram's Real Time Speech to Text and Text to Speech.
+## Get Started
 
-This example uses Langchain and OpenAI's ChatGPT LLM
-
-## Setup
-
-```
-npm i
-```
-
-## API Keys
-
-```
-export OPEN_AI_API_KEY=xxx
-export DEEPGRAM_API_KEY=xxx
-```
-
-## Running 
-
-```
-npm run start
-```
-
-## Webpage URL
-
-[http://localhost:3000/](http://localhost:3000/)
+1. Copy `.env.example` into a file named `.env`. Update `.env` to replace the sample values with your own.
+2. Install node modules:
+    ```
+    npm install
+    ```
+3. Run the server:
+    ```
+    npm run start
+    ```
+4. Try out the demo in your browser: [http://localhost:3000/](http://localhost:3000/)

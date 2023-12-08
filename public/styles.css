@@ -26,6 +26,20 @@ header {
     padding: 0 5%;
 }
 
+.finalized {
+    color: #bd80dc;
+    opacity: 1;
+}
+
+.unfinalized {
+    color: #c6194a;
+    opacity: 1;
+}
+
+.agent-response {
+    color: #FFFFFF;
+}
+
 span {
     opacity: 0.1;
 }

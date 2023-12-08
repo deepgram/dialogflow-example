@@ -1,24 +1,46 @@
-let socket;
-let mediaRecorder;
-
 let conversation = document.getElementById('conversation');
 let mic = document.getElementById('mic-button');
-let offset = 300;
-let scrollOverride = false;
-let recording = false;
 let socketId = null;
-let lineIndex = 0;
+
 const apiOrigin = "http://localhost:3000";
 const wssOrigin = "http://localhost:3000";
+let audioElement = null;
 
-var audio_file = document.getElementById("audio_file");
-let audioElm = null;
-let loadWordsTimeout = null;
+let mediaRecorder = null;
+let mediaRecorderHasBeenStarted = false;
+let recording = false;
+let recordingChangeInProgress = false;
+
+const STATES = {
+  AwaitingUtterance: "AwaitingUtterance",
+  AwaitingBotReply: "AwaitingBotReply"
+};
+
+let currentState = STATES.AwaitingUtterance;
+
+/** 
+ * If a user utterance is in progress, this is the div within `#conversation` where that utterance 
+ * is being printed.
+ */
+let ongoingUtteranceDiv = null;
+
+/** The concatenated is_final=true results that comprise the current utterance. */
+let finalizedTranscript = "";
+
+/** The most recent is_final=false result for which we have not yet seen an is_final=true */
+let unfinalizedTranscript = "";
+
+/** 
+ * Boolean for whether we have sent interim results to the NLP engine since the last is_final 
+ * result. If so, the results in this series are considered to be already processed, and should be 
+ * ignored until after the next is_final. 
+ */
+let processedCurrentInterimResult = false;
 
 async function updateAudio(text) {
-  audioElm = document.createElement('audio');
-  audioElm.setAttribute('controls', '');
-  audioElm.setAttribute('autoplay', 'true');
+  audioElement = document.createElement('audio');
+  audioElement.setAttribute('controls', '');
+  audioElement.setAttribute('autoplay', 'true');
   let source = document.createElement('source');
 
   let response = await getAudioForText(text);
@@ -28,11 +50,9 @@ async function updateAudio(text) {
 
   source.setAttribute('type', 'audio/mp3');
 
-  audioElm.appendChild(source);
+  audioElement.appendChild(source);
 
-  audio_file.innerHTML = '';
-  audio_file.appendChild(audioElm);
-  audioElm.play();
+  audioElement.play();
 }
 
 async function getAudioForText(text) {
@@ -45,140 +65,172 @@ navigator.mediaDevices
   .then((stream) => {
     mediaRecorder = new MediaRecorder(stream);
     socket = io(wssOrigin, (options = { transports: ["websocket"] }));
-  })
-  .then(() => {
     socket.on("connect", async () => {
-      if (mediaRecorder.state == "inactive") mediaRecorder.start(500);
-
-      mediaRecorder.addEventListener("dataavailable", (event) => {
-        socket.emit("packet-sent", event.data);
-      });
-
-      socket.addEventListener("interim-result", (msg) => {
-        if (recording) {
-          // Handle Barge In
-          if (audioElm) {
-            audioElm.pause();
-          }
-          clearTimeout(loadWordsTimeout);
-          addText(msg.utterance, false, true);
-          // msg.words.forEach((word)=>{
-          //   addRegion(word);
-          // })
-        }
-      });
-      socket.addEventListener("speech-final", (msg) => {
-        if (recording) {
-          addText(msg.utterance, false, true);
-          // msg.words.forEach((word)=>{
-          //   addRegion(word);
-          // })
-          lineIndex++;
-          promptAI(socketId, msg.utterance);
-        }
-      });
       socket.addEventListener("socketId", (socket_id) => {
         socketId = socket_id;
+        console.log("Socket ID for this session: " + socketId)
       });
-    });
+
+      mediaRecorder.addEventListener("dataavailable", (event) => {
+        if (recording) {
+          socket.emit("audio-from-user", event.data);
+        }
+      });
+
+      socket.addEventListener("dg-results", (msg) => handleDgResults(msg));
+
+      socket.addEventListener("dg-utterance-end", (msg) => handleDgUtteranceEnd());
+    })
   });
 
-function addText(text, isAI, replaceLine) {
-  let div = document.getElementById('chat_line_' + lineIndex);
+function handleDgResults(results) {
+  switch (currentState) {
+    case STATES.AwaitingUtterance:
+      if (processedCurrentInterimResult) {
+        if (results.isFinal) {
+          processedCurrentInterimResult = false;
+        }
+        return;
+      }
 
-  if (!div) {
-    div = document.createElement('div');
-  }
-  if (replaceLine) {
-    div.innerHTML = '';
-  }
-  div.id = 'chat_line_' + lineIndex + (isAI ? '_ai' : '');
-  div.className = 'response';
-  div.style.color = isAI ? '#FFFFFF' : '#bd80dc';
-  conversation.appendChild(div);
-  if (replaceLine) {
-    div.innerHTML = text;
-  } else {
-    let words = text.replaceAll('\n', '<br>').split(' ');
-    loadWords(div, words, 0);
+      if (results.transcript !== "" && audioElement) {
+        // If the agent's previous response is still being played when we've received a new
+        // transcript from the user, assume the user is trying to cut the bot off (barge-in).
+        audioElement.pause();
+      }
+
+      if (!results.isFinal) {
+        unfinalizedTranscript = results.transcript;
+        updateOngoingUtteranceDiv();
+        return;
+      }
+
+      unfinalizedTranscript = "";
+      if (results.transcript !== "") {
+        finalizedTranscript += " " + results.transcript;
+        finalizedTranscript.trim();
+      }
+      updateOngoingUtteranceDiv();
+
+      if (results.speechFinal && finalizedTranscript !== "") {
+        ongoingUtteranceDiv = null; // This utterance is finished, the div will not be changed again
+        currentState = STATES.AwaitingBotReply;
+        queryAgent(socketId, finalizedTranscript);
+      }
+
+      break;
+
+    case STATES.AwaitingBotReply:
+      if (results.isFinal && processedCurrentInterimResult) {
+        processedCurrentInterimResult = false;
+      }
+
+      break;
+
+    default:
+      console.log("ERROR Unexpected state", currentState);
   }
 }
 
-function loadWords(div, words, index) {
-  div.innerHTML += words[index] + ' ';
-  if (index < words.length - 1) {
-    loadWordsTimeout = setTimeout(() => {
-      loadWords(div, words, index + 1);
-    }, 100);
+function updateOngoingUtteranceDiv() {
+  if (ongoingUtteranceDiv === null) {
+    ongoingUtteranceDiv = document.createElement("div");
+    ongoingUtteranceDiv.className = "response";
+    conversation.appendChild(ongoingUtteranceDiv);
+  }
+
+  ongoingUtteranceDiv.innerHTML = '<span class="finalized">'
+    + finalizedTranscript
+    + '</span> <span class="unfinalized">'
+    + unfinalizedTranscript
+    + '</span>';
+}
+
+function handleDgUtteranceEnd() {
+  switch (currentState) {
+    case STATES.AwaitingUtterance:
+      let fullTranscript = (finalizedTranscript + " " + unfinalizedTranscript).trim();
+      if (fullTranscript === "") {
+        return;
+      }
+
+      if (unfinalizedTranscript !== "") {
+        // If there is an unfinalized interim result at this point, consider it finalized. Mark it
+        // as processed so we remember to ignore later iterations of that result.  
+        finalizedTranscript = fullTranscript;
+        unfinalizedTranscript = "";
+        processedCurrentInterimResult = true;
+        updateOngoingUtteranceDiv();
+      }
+
+      ongoingUtteranceDiv = null; // This utterance is finished, the div will not be changed again
+      currentState = STATES.AwaitingBotReply;
+      queryAgent(socketId, fullTranscript);
+
+      break;
+
+    case STATES.AwaitingBotReply:
+      // Do nothing, discard this message
+      break;
+
+    default:
+      console.log("ERROR Unexpected state", currentState);
   }
 }
 
-async function promptAI(socketId, msg) {
-  let model = document.getElementById('model').value;
+function handleBotResponse(response) {
+  const agentMessageDiv = document.createElement("div");
+  agentMessageDiv.className = "response agent-response";
+  conversation.appendChild(agentMessageDiv);
+  agentMessageDiv.innerHTML = response;
+
+  finalizedTranscript = "";
+  unfinalizedTranscript = "";
+  currentState = STATES.AwaitingUtterance;
+}
+
+async function queryAgent(socketId, msg) {
   const response = await fetch(`${apiOrigin}/chat?socketId=${socketId}&message=${encodeURIComponent(msg)}`, {
     method: "GET"
   });
+  const json = await response.json();
 
-  const data = await response.json();
+  if (json && !json.err) {
+    const reply = json.responses.join("\n\n");
 
-  // Make sure to configure your OpenAI API Key in config.json for this to work
-  if (data && !data.err) {
-    lineIndex++;
-    let reply = data.response.response;
+    handleBotResponse(reply);
+
     updateAudio(reply);
-    addText(reply, true);
   } else {
-    alert('Error: You must configure your OpenAI API Key in the config.json to use the "Respond with AI" feature.');
+    console.log("Got unexpected response from `/chat` enpoint: ", json);
   }
 }
 
-function recordingStart() {
-  recording = true;
+async function recordingStart() {
+  if (!mediaRecorderHasBeenStarted) {
+    // Send 100 ms of audio to Deepgram at a time
+    mediaRecorder.start(100);
+    mediaRecorderHasBeenStarted = true;
+  }
   mic.setAttribute('src', 'mic_on.png');
-  startLiveWaveform();
-  const url = apiOrigin + '/mic-toggle?on=true'
-  fetch(url);
+  recording = true;
 }
 
-function recordingStop() {
-  setTimeout(() => {
-    recording = false;
-  }, 50)
+async function recordingStop() {
   mic.setAttribute('src', 'mic_off.png');
-  stopLiveWaveform();
-  const url = apiOrigin + '/mic-toggle?on=false'
-  fetch(url);
+  recording = false;
 }
 
-function toggleRecording() {
+async function toggleRecording() {
+  if (recordingChangeInProgress) {
+    return;
+  }
+  recordingChangeInProgress = true;
+  toggleWaveSurferPause();
   if (recording) {
-    recordingStop();
+    await recordingStop();
   } else {
-    recordingStart();
+    await recordingStart();
   }
+  recordingChangeInProgress = false;
 }
-
-async function modelChanged() {
-  mic.setAttribute("class", "disabled");
-  document.getElementById('conversation').innerHTML = '';
-  let model = document.getElementById('model').value;
-  const url = apiOrigin + '/new?model=' + model;
-  await fetch(url);
-  mic.setAttribute("class", "");
-}
-
-document.getElementById('content').addEventListener('scroll', () => {
-  var elem = document.getElementById('content');
-  if (elem.scrollTop != elem.scrollHeight) {
-    scrollOverride = true;
-  } else {
-    scrollOverride = false;
-  }
-});
-
-window.setInterval(function () {
-  if (!scrollOverride) {
-    var elem = document.getElementById('content');
-    elem.scrollTop = elem.scrollHeight;
-  }
-}, 200);

@@ -6,10 +6,8 @@
     <script src="https://cdn.socket.io/4.5.3/socket.io.min.js"
         integrity="sha384-WPFUvHkB1aHA5TDSZi6xtDgkF0wXJcIIxXhC6h8OT8EH3fC5PWro5pWJ1THjcfEi"
         crossorigin="anonymous"></script>
-
     <script src="https://unpkg.com/wavesurfer.js@7"></script>
-    <script src="https://unpkg.com/wavesurfer.js@7.4.6/dist/plugins/record.min.js"></script>
-    <script src="https://unpkg.com/wavesurfer.js@7.4.6/dist/plugins/regions.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/record.min.js"></script>
 </head>
 
 <body>
@@ -18,23 +16,11 @@
             <img class="logo" src="logo.svg">
         </div>
         <div id="content1">
-            <h3 style="margin-top: 16px;text-align: center;">For entertainment purposes only</h3>
+            <h3 style="margin-top: 16px;text-align: center;">Click the mic button and say something!</h3>
             <div id="mic"></div>
         </div>
         <div id="content">
             <br>
-            <div class="centered">
-                <select id="model" onchange="modelChanged()">
-                    <option value="listener">Listener</option>
-                    <option value="medic">Medic</option>
-                    <option value="therapist">Therapist</option>
-                    <option value="critic">Critic</option>
-                    <option value="brainstorm">Brainstorm</option>
-                    <option value="recipes">Recipes</option>
-                    <option value="songwriter">Songwriter</option>
-                    <option value="deepgram">Deepgram</option>
-                </select>
-            </div>
             <div id="conversation">
 
             </div>
@@ -44,8 +30,7 @@
     </div>
     <div class="recorder" onclick="toggleRecording()">
         <img id="mic-button" src="mic_off.png" width="50px" class="disabled">
-        <div id="audio_file" style="display: none;">
-        </div>
+    </div>
     </div>
     <script src="script.js"></script>
     <script src="waveform.js"></script>
