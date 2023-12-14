@@ -1,0 +1,26 @@
+{
+  "name": "real-time-voice-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@deepgram/sdk": "^1.21.0",
+    "@google-cloud/dialogflow-cx": "^4.2.0",
+    "audio-buffer-from": "^1.1.1",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "http": "0.0.1-security",
+    "log-timestamp": "^0.3.0",
+    "socket.io": "^4.5.4"
+  },
+  "devDependencies": {
+    "nodemon": "2.0.7"
+  }
+}

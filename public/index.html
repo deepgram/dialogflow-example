@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <script src="https://cdn.socket.io/4.5.3/socket.io.min.js"
+        integrity="sha384-WPFUvHkB1aHA5TDSZi6xtDgkF0wXJcIIxXhC6h8OT8EH3fC5PWro5pWJ1THjcfEi"
+        crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/record.min.js"></script>
+</head>
+
+<body>
+    <div id="main">
+        <div id="settings">
+            <button id="echo-cancel-button" onclick="toggleEchoCancellation()"></button>
+        </div>
+        <div class="title">
+            Deepgram x Dialogflow Demo
+        </div>
+        <div id="wavesurfer-container">
+            <h3 style="margin-top: 16px;text-align: center;">Click the mic button and say something!</h3>
+            <div id="mic"></div>
+        </div>
+        <div id="content">
+            <br>
+            <div id="conversation"></div>
+        </div>
+        <div class="gradientback"></div>
+    </div>
+    <div class="recorder" onclick="toggleRecording()">
+        <img id="mic-button" src="mic_off.png" width="50px">
+    </div>
+    </div>
+    <script src="client.js"></script>
+    <script src="waveform.js"></script>
+</body>
+
+</html>
