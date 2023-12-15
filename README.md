@@ -23,4 +23,6 @@ This repository demonstrates using Deepgram to talk to a Google Dialogflow CX ag
 
 ## Demo
 
+This video shows a conversation with the [Small Talk Agent](https://cloud.google.com/dialogflow/cx/docs/concept/agents-prebuilt#small-talk). Turn on sound to hear the text-to-speech and barge-in.
+
 [dialogflow-video.webm](https://github.com/deepgram/dialogflow-example/assets/37026846/b5c4551d-6c1d-45f9-b683-8840ef861f8c)
