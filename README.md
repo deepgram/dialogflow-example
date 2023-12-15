@@ -20,3 +20,7 @@ This repository demonstrates using Deepgram to talk to a Google Dialogflow CX ag
     npm run start
     ```
 4. Point your browser to [http://localhost:3000/](http://localhost:3000/) to try out the demo. Chrome works best.
+
+## Demo
+
+[dialogflow-video.webm](https://github.com/deepgram/dialogflow-example/assets/37026846/b5c4551d-6c1d-45f9-b683-8840ef861f8c)
